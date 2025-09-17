@@ -9,8 +9,8 @@ A complete banking web application with Go backend and HTML/CSS/JS frontend, now
 # Build and run with one command
 ./run.sh
 
-# Or manually with docker-compose
-docker-compose up --build
+# Or manually with docker compose
+docker compose up --build
 
 # Or build and run separately
 ./build.sh
@@ -30,17 +30,17 @@ docker build -t viridian-bank:latest .
 # Run the container
 docker run -p 8080:8080 viridian-bank:latest
 
-# Run with docker-compose (recommended)
-docker-compose up -d
+# Run with docker compose (recommended)
+docker compose up -d
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop the application
-docker-compose down
+docker compose down
 
 # Rebuild and restart
-docker-compose up --build
+docker compose up --build
 ```
 
 ## 🏗️ Architecture
@@ -86,7 +86,7 @@ The application supports these environment variables:
 ```
 viridian-city-bank/
 ├── Dockerfile              # Main Docker configuration
-├── docker-compose.yml      # Docker Compose setup
+├── compose.yaml            # Docker Compose setup
 ├── build.sh               # Build script
 ├── run.sh                 # Run script
 ├── index.html             # Frontend entry point
@@ -123,7 +123,7 @@ viridian-city-bank/
 ## 🐛 Troubleshooting
 
 ### Common Issues
-1. **Port already in use**: Change the port mapping in docker-compose.yml
+1. **Port already in use**: Change the port mapping in compose.yaml
 2. **Build fails**: Ensure Docker has enough memory allocated
 3. **Database issues**: The SQLite database is included in the container
 

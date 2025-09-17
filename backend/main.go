@@ -17,10 +17,8 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
-	}
+	// Load environment variables from .env file if available
+	godotenv.Load() // Silently ignore errors - env file is optional
 
 	// Initialize database
 	db, err := InitDB()

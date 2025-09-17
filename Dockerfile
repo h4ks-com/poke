@@ -1,5 +1,5 @@
 # Multi-stage build for Viridian City Bank
-FROM golang:1.20-alpine AS backend-builder
+FROM golang:1.20 AS backend-builder
 
 # Set working directory for backend
 WORKDIR /app/backend
@@ -11,14 +11,14 @@ RUN go mod download
 # Copy backend source code
 COPY backend/ ./
 
-# Build the Go application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o viridian-bank-backend .
+# Build the Go application with CGO enabled for SQLite
+RUN CGO_ENABLED=1 GOOS=linux go build -a -o viridian-bank-backend .
 
 # Final stage
-FROM alpine:latest
+FROM debian:bookworm-slim
 
-# Install ca-certificates for HTTPS requests and serve static files
-RUN apk --no-cache add ca-certificates
+# Install ca-certificates and SQLite runtime
+RUN apt-get update && apt-get install -y ca-certificates sqlite3 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -31,10 +31,6 @@ COPY debug_test.html ./
 COPY css/ ./css/
 COPY js/ ./js/
 COPY assets/ ./assets/
-
-# Copy database and other necessary files
-COPY backend/viridian_bank.db ./
-COPY backend/.env* ./
 
 # Expose port
 EXPOSE 8080
