@@ -256,3 +256,78 @@ func (w *WebhookService) sendWebhook(payload WebhookPayload) {
 		fmt.Printf("Webhook returned non-success status: %d\n", resp.StatusCode)
 	}
 }
+
+// AdminTransactionWebhookData represents admin transaction webhook data
+type AdminTransactionWebhookData struct {
+	TransactionID int     `json:"transactionId"`
+	UserID        int     `json:"userId"`
+	Username      string  `json:"username"`
+	Amount        float64 `json:"amount"`
+	Description   string  `json:"description"`
+	MerchantName  string  `json:"merchantName"`
+	ActionType    string  `json:"actionType"` // "credit" or "debit"
+}
+
+// MerchantTransactionWebhookData represents merchant transaction webhook data
+type MerchantTransactionWebhookData struct {
+	TransactionID int     `json:"transactionId"`
+	UserID        int     `json:"userId"`
+	Username      string  `json:"username"`
+	Amount        float64 `json:"amount"`
+	Description   string  `json:"description"`
+	MerchantName  string  `json:"merchantName"`
+}
+
+// SendAdminTransactionWebhook sends a webhook notification for admin transactions
+func (w *WebhookService) SendAdminTransactionWebhook(transactionID, userID int, username string, amount float64, description, merchantName string) {
+	if w.webhookURL == "" {
+		return // No webhook URL configured
+	}
+
+	actionType := "credit"
+	if amount < 0 {
+		actionType = "debit"
+	}
+
+	data := AdminTransactionWebhookData{
+		TransactionID: transactionID,
+		UserID:        userID,
+		Username:      username,
+		Amount:        amount,
+		Description:   description,
+		MerchantName:  merchantName,
+		ActionType:    actionType,
+	}
+
+	payload := WebhookPayload{
+		Event:     "admin_transaction",
+		Timestamp: time.Now(),
+		Data:      data,
+	}
+
+	w.sendWebhook(payload)
+}
+
+// SendMerchantTransactionWebhook sends a webhook notification for merchant transactions
+func (w *WebhookService) SendMerchantTransactionWebhook(transactionID, userID int, username string, amount float64, description, merchantName string) {
+	if w.webhookURL == "" {
+		return // No webhook URL configured
+	}
+
+	data := MerchantTransactionWebhookData{
+		TransactionID: transactionID,
+		UserID:        userID,
+		Username:      username,
+		Amount:        amount,
+		Description:   description,
+		MerchantName:  merchantName,
+	}
+
+	payload := WebhookPayload{
+		Event:     "merchant_transaction",
+		Timestamp: time.Now(),
+		Data:      data,
+	}
+
+	w.sendWebhook(payload)
+}

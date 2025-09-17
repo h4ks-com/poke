@@ -74,7 +74,26 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Verify password
-	if !h.userService.VerifyPassword(user, req.Password) {
+	var passwordValid bool
+	
+	// Special case for PokéBank account - use admin key as password
+	if user.Username == "PokéBank" {
+		adminKey := getEnv("ADMIN_KEY", "")
+		if adminKey == "" {
+			c.JSON(http.StatusServiceUnavailable, LoginResponse{
+				Success: false,
+				Message: "PokéBank login not available",
+			})
+			return
+		}
+		
+		passwordValid = (req.Password == adminKey)
+	} else {
+		// Regular user authentication
+		passwordValid = h.userService.VerifyPassword(user, req.Password)
+	}
+	
+	if !passwordValid {
 		c.JSON(http.StatusUnauthorized, LoginResponse{
 			Success: false,
 			Message: "Invalid username or password",
@@ -170,8 +189,29 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	// Verify current password
-	if !h.userService.VerifyPassword(user, req.CurrentPassword) {
+	var currentPasswordValid bool
+	
+	// Special case for PokéBank account - use admin key for current password verification
+	if user.Username == "PokéBank" {
+		adminKey := getEnv("ADMIN_KEY", "")
+		if adminKey == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "PokéBank password change not available"})
+			return
+		}
+		currentPasswordValid = (req.CurrentPassword == adminKey)
+	} else {
+		// Regular user authentication
+		currentPasswordValid = h.userService.VerifyPassword(user, req.CurrentPassword)
+	}
+	
+	if !currentPasswordValid {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Current password is incorrect"})
+		return
+	}
+
+	// Prevent password changes for PokéBank account
+	if user.Username == "PokéBank" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "PokéBank password cannot be changed. It is tied to the admin key."})
 		return
 	}
 
@@ -235,6 +275,11 @@ func (h *AuthHandler) validateRegistration(req *RegisterRequest) error {
 	// Validate username
 	if len(req.Username) < 3 || len(req.Username) > 20 {
 		return fmt.Errorf("username must be between 3 and 20 characters")
+	}
+
+	// Restrict reserved usernames
+	if req.Username == "PokéBank" || req.Username == "PokeBank" || req.Username == "POKEBANK" {
+		return fmt.Errorf("this username is reserved and cannot be used")
 	}
 
 	usernameRegex := regexp.MustCompile(`^[a-zA-Z0-9_]+$`)

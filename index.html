@@ -119,7 +119,32 @@
 
             <!-- Recent Transactions -->
             <section class="transactions-section">
-                <h3>Recent Transactions</h3>
+                <div class="section-header">
+                    <h3>Recent Transactions</h3>
+                    <button id="downloadStmtBtn" class="download-stmt-btn">
+                        <i class="fas fa-download"></i>
+                        Download Statement
+                    </button>
+                </div>
+                
+                <!-- Transaction Filters -->
+                <div class="transaction-filters">
+                    <div class="filter-row">
+                        <div class="search-container">
+                            <input type="text" id="transactionSearch" placeholder="Search transactions..." class="filter-input">
+                            <i class="fas fa-search search-icon"></i>
+                        </div>
+                        <select id="transactionTypeFilter" class="filter-select">
+                            <option value="all">All Transactions</option>
+                            <option value="incoming">Incoming Only</option>
+                            <option value="outgoing">Outgoing Only</option>
+                        </select>
+                        <button id="clearFilters" class="clear-filters-btn">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+                </div>
+                
                 <div class="transactions-list" id="transactionsList">
                     <!-- Transactions will be populated by JavaScript -->
                 </div>
@@ -162,8 +187,8 @@
             
             <form id="requestForm" class="request-form">
                 <div class="form-group">
-                    <label for="requestFromAccount">Request From</label>
-                    <input type="text" id="requestFromAccount" placeholder="Enter account username" required>
+                    <label for="requestFromAccount">Request From Username</label>
+                    <input type="text" id="requestFromAccount" placeholder="Enter username" required>
                 </div>
                 
                 <div class="form-group">
@@ -207,8 +232,8 @@
             
             <form id="transferForm" class="transfer-form">
                 <div class="form-group">
-                    <label for="recipientAccount">Recipient Account</label>
-                    <input type="text" id="recipientAccount" placeholder="Enter account number" required>
+                    <label for="recipientAccount">Recipient Username</label>
+                    <input type="text" id="recipientAccount" placeholder="Enter username" required>
                 </div>
                 
                 <div class="form-group">
@@ -328,7 +353,7 @@
     <div id="cardModal" class="modal">
         <div class="modal-content card-modal-content">
             <div class="modal-header">
-                <h3>My Virtual Bank Card</h3>
+                <h3>My Bank Card</h3>
                 <button class="close-btn" id="closeCardModal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -426,6 +451,7 @@
     <!-- Success/Error Messages -->
     <div id="messageContainer" class="message-container"></div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
 </body>

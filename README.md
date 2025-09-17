@@ -50,15 +50,79 @@ central_bank/
 
 ## API Structure
 
-The application includes placeholder API endpoints in `js/api.js` that simulate backend calls:
+The application includes the following API endpoints:
 
-- `POST /api/auth/login` - User authentication
-- `POST /api/auth/logout` - User logout
-- `GET /api/account/balance` - Get current balance
-- `GET /api/account/transactions` - Get transaction history
-- `POST /api/transactions/transfer` - Send money
-- `POST /api/transactions/deposit` - Deposit funds
-- `POST /api/transactions/withdraw` - Withdraw funds
+### Authentication Endpoints
+- `POST /api/register` - User registration
+- `POST /api/login` - User authentication
+- `POST /api/change-password` - Change user password
+
+### Banking Endpoints (Authenticated)
+- `GET /api/account` - Get account information
+- `GET /api/balance` - Get current balance
+- `GET /api/transactions` - Get transaction history
+- `POST /api/transfer` - Send money transfer
+- `POST /api/payment-requests` - Create payment request
+- `GET /api/payment-requests` - Get payment requests
+- `PUT /api/payment-requests/:id` - Handle payment request
+- `GET /api/card` - Get card information
+- `POST /api/card/refresh` - Refresh card number
+
+### Administrative Endpoints (Admin Key Required)
+- `POST /api/admin/adjust-balance` - Adjust user balance
+- `POST /api/admin/merchant-transaction` - Create merchant transaction
+- `GET /api/admin/users` - Get all users
+- `GET /api/admin/user/:account` - Get user by account number
+
+## Administrative API Usage
+
+### Authentication
+All admin endpoints require the `X-Admin-Key` header:
+```bash
+curl -H "X-Admin-Key: your-admin-secret-key" ...
+```
+
+### Adjust User Balance
+```bash
+POST /api/admin/adjust-balance
+Content-Type: application/json
+X-Admin-Key: your-admin-secret-key
+
+{
+  "user_id": 123,
+  "amount": 1000.00,
+  "description": "Quest reward payment",
+  "merchant_name": "Pokémon Center"
+}
+```
+
+### Create Merchant Transaction
+```bash
+POST /api/admin/merchant-transaction
+Content-Type: application/json
+X-Admin-Key: your-admin-secret-key
+
+{
+  "user_id": 123,
+  "amount": -50.00,
+  "description": "Potion purchase",
+  "merchant_name": "Mart"
+}
+```
+
+### Get All Users
+```bash
+GET /api/admin/users
+X-Admin-Key: your-admin-secret-key
+```
+
+## Security Features
+
+- **Admin Key Authentication**: All administrative functions require a secret admin key
+- **PokéBank Balance**: The PokéBank system account maintains a fixed balance of 999,999,999.99
+- **Virtual Merchants**: Transactions can be created to/from non-existent merchant accounts
+- **Transaction Logging**: All administrative actions are logged in the transaction history
+- **Webhook Notifications**: Admin actions trigger webhook notifications for external systems
 
 ## Customization
 

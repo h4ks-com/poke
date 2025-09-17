@@ -30,19 +30,38 @@ func (s *UserService) CreateUser(username, email, password string) (*User, error
 	// Generate unique account number
 	accountNumber := s.generateAccountNumber()
 
+	// Start transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
 	// Create user with initial balance
 	query := `
 		INSERT INTO users (username, email, password_hash, account_number, balance)
 		VALUES (?, ?, ?, ?, ?)
 	`
 
-	result, err := s.db.Exec(query, username, email, string(hashedPassword), accountNumber, 1000.00)
+	result, err := tx.Exec(query, username, email, string(hashedPassword), accountNumber, 1000.00)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the last insert ID
 	userID, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create initial transaction from PokéBank
+	err = s.createInitialTransaction(tx, int(userID))
+	if err != nil {
+		return nil, err
+	}
+
+	// Commit transaction
+	err = tx.Commit()
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +134,23 @@ func (s *UserService) GetUserByAccountNumber(accountNumber string) (*User, error
 		return nil, err
 	}
 
+	return user, nil
+}
+
+// GetUserByUsernameOrAccountNumber retrieves a user by either username or account number
+func (s *UserService) GetUserByUsernameOrAccountNumber(identifier string) (*User, error) {
+	// Try by username first
+	user, err := s.GetUserByUsername(identifier)
+	if err == nil {
+		return user, nil
+	}
+	
+	// If not found by username, try by account number
+	user, err = s.GetUserByAccountNumber(identifier)
+	if err != nil {
+		return nil, fmt.Errorf("user not found with username or account number: %s", identifier)
+	}
+	
 	return user, nil
 }
 
@@ -197,4 +233,100 @@ func (s *UserService) generateAccountNumber() string {
 	}
 	
 	return accountNumber
+}
+
+// createInitialTransaction creates the initial ₽1000 transaction from PokéBank
+func (s *UserService) createInitialTransaction(tx *sql.Tx, userID int) error {
+	// Get or create PokéBank system user
+	pokeBankID, err := s.getOrCreatePokeBankUser(tx)
+	if err != nil {
+		return err
+	}
+
+	// Create initial transaction
+	query := `
+		INSERT INTO transactions (from_user_id, to_user_id, amount, transaction_type, description, status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err = tx.Exec(query, pokeBankID, userID, 1000.00, "deposit", "Welcome bonus - Account opening", "completed", time.Now())
+	if err != nil {
+		return err
+	}
+
+	// Reset PokéBank balance to ensure it stays at 999999999.99
+	const pokeBankBalance = 999999999.99
+	_, err = tx.Exec(`UPDATE users SET balance = ? WHERE id = ?`, pokeBankBalance, pokeBankID)
+	return err
+}
+
+// getOrCreatePokeBankUser ensures PokéBank system user exists
+func (s *UserService) getOrCreatePokeBankUser(tx *sql.Tx) (int, error) {
+	// Check if PokéBank user exists
+	var pokeBankID int
+	query := `SELECT id FROM users WHERE username = 'PokéBank'`
+	err := tx.QueryRow(query).Scan(&pokeBankID)
+	
+	if err == nil {
+		// PokéBank user already exists
+		return pokeBankID, nil
+	}
+	
+	if err != sql.ErrNoRows {
+		// Some other error occurred
+		return 0, err
+	}
+
+	// Create PokéBank system user
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("system-user-no-login"), bcrypt.DefaultCost)
+	if err != nil {
+		return 0, err
+	}
+
+	insertQuery := `
+		INSERT INTO users (username, email, password_hash, account_number, balance)
+		VALUES (?, ?, ?, ?, ?)
+	`
+
+	result, err := tx.Exec(insertQuery, "PokéBank", "system@pokebank.com", string(hashedPassword), "0000000000", 999999999.99)
+	if err != nil {
+		return 0, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+// GetAllUsers returns all users with their basic info (admin function)
+func (s *UserService) GetAllUsers() ([]User, error) {
+	query := `
+		SELECT id, username, email, account_number, balance, created_at 
+		FROM users 
+		ORDER BY created_at DESC
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var user User
+		err := rows.Scan(
+			&user.ID, &user.Username, &user.Email, &user.AccountNumber, 
+			&user.Balance, &user.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
 }

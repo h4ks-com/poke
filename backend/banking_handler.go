@@ -10,14 +10,16 @@ import (
 // BankingHandler handles banking-related HTTP requests
 type BankingHandler struct {
 	service        *BankingService
+	userService    *UserService
 	webhookService *WebhookService
 	cardService    *CardService
 }
 
 // NewBankingHandler creates a new BankingHandler
-func NewBankingHandler(service *BankingService, webhookService *WebhookService, cardService *CardService) *BankingHandler {
+func NewBankingHandler(service *BankingService, userService *UserService, webhookService *WebhookService, cardService *CardService) *BankingHandler {
 	return &BankingHandler{
 		service:        service,
+		userService:    userService,
 		webhookService: webhookService,
 		cardService:    cardService,
 	}
@@ -38,9 +40,9 @@ func (h *BankingHandler) GetBalanceHandler(c *gin.Context) {
 
 // TransferRequest represents the request body for transfers
 type TransferRequest struct {
-	ToAccountNumber string  `json:"toAccountNumber" binding:"required"`
-	Amount          float64 `json:"amount" binding:"required,gt=0"`
-	Description     string  `json:"description"`
+	To          string  `json:"to" binding:"required"`          // Can be username or account number
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+	Description string  `json:"description"`
 }
 
 // TransferHandler handles POST /api/transfer
@@ -53,7 +55,14 @@ func (h *BankingHandler) TransferHandler(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.service.Transfer(userID, req.ToAccountNumber, req.Amount, req.Description)
+	// Resolve the target user by username or account number
+	targetUser, err := h.userService.GetUserByUsernameOrAccountNumber(req.To)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipient not found"})
+		return
+	}
+
+	transaction, err := h.service.Transfer(userID, targetUser.AccountNumber, req.Amount, req.Description)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -70,10 +79,10 @@ func (h *BankingHandler) TransferHandler(c *gin.Context) {
 
 // PaymentRequestRequest represents the request body for payment requests
 type PaymentRequestRequest struct {
-	ToUsername string  `json:"toUsername" binding:"required"`
-	Amount     float64 `json:"amount" binding:"required,gt=0"`
-	Reason     string  `json:"reason" binding:"required"`
-	Message    string  `json:"message"`
+	To      string  `json:"to" binding:"required"`      // Can be username or account number
+	Amount  float64 `json:"amount" binding:"required,gt=0"`
+	Reason  string  `json:"reason" binding:"required"`
+	Message string  `json:"message"`
 }
 
 // CreatePaymentRequestHandler handles POST /api/payment-requests
@@ -86,7 +95,14 @@ func (h *BankingHandler) CreatePaymentRequestHandler(c *gin.Context) {
 		return
 	}
 
-	paymentRequest, err := h.service.CreatePaymentRequest(userID, req.ToUsername, req.Amount, req.Reason, req.Message)
+	// Resolve the target user by username or account number
+	targetUser, err := h.userService.GetUserByUsernameOrAccountNumber(req.To)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Recipient not found"})
+		return
+	}
+
+	paymentRequest, err := h.service.CreatePaymentRequest(userID, targetUser.AccountNumber, req.Amount, req.Reason, req.Message)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

@@ -8,6 +8,7 @@ class BankingApp {
         
         this.initializeApp();
         this.bindEvents();
+        this.bindTransactionFilters();
     }
 
     initializeApp() {
@@ -81,6 +82,9 @@ class BankingApp {
 
         // Form submissions
         this.bindFormEvents();
+
+        // Transaction filters
+        this.bindTransactionFilters();
     }
 
     bindModalEvents() {
@@ -194,6 +198,30 @@ class BankingApp {
         if (passwordChangeForm) {
             passwordChangeForm.addEventListener('submit', (e) => this.handlePasswordChange(e));
         }
+
+        // Download statement button
+        const downloadStmtBtn = document.getElementById('downloadStmtBtn');
+        if (downloadStmtBtn) {
+            downloadStmtBtn.addEventListener('click', () => this.downloadStatement());
+        }
+    }
+
+    bindTransactionFilters() {
+        const searchInput = document.getElementById('transactionSearch');
+        const typeFilter = document.getElementById('transactionTypeFilter');
+        const clearFiltersBtn = document.getElementById('clearFilters');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => this.filterTransactions());
+        }
+
+        if (typeFilter) {
+            typeFilter.addEventListener('change', () => this.filterTransactions());
+        }
+
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => this.clearFilters());
+        }
     }
 
     async handleLogin(e) {
@@ -289,7 +317,7 @@ class BankingApp {
         try {
             const response = await this.api.transfer(recipientAccount, amount, memo);
             
-            this.showMessage('success', 'Transfer Successful', `$${amount.toFixed(2)} sent to ${recipientAccount}`);
+            this.showMessage('success', 'Transfer Successful', `₽${amount.toFixed(2)} sent to ${recipientAccount}`);
             this.closeModal('transferModal');
             this.refreshDashboard();
             
@@ -627,7 +655,7 @@ class BankingApp {
                         <p><strong>Date:</strong> ${formattedDate}</p>
                     </div>
                     <div>
-                        <div class="request-amount">$${request.amount.toFixed(2)}</div>
+                        <div class="request-amount">₽${request.amount.toFixed(2)}</div>
                         <div class="request-status ${statusClass}">${statusText}</div>
                     </div>
                 </div>
@@ -772,7 +800,7 @@ class BankingApp {
                         <p>Created: ${formattedDate}</p>
                     </div>
                     <div style="text-align: right;">
-                        <div class="request-amount">$${request.amount.toFixed(2)}</div>
+                        <div class="request-amount">₽${request.amount.toFixed(2)}</div>
                         <span class="request-status ${request.status}">${request.status}</span>
                     </div>
                 </div>
@@ -892,12 +920,328 @@ class BankingApp {
         }
     }
 
+    filterTransactions() {
+        const searchInput = document.getElementById('transactionSearch');
+        const typeFilter = document.getElementById('transactionTypeFilter');
+        const transactionItems = document.querySelectorAll('.transaction-item');
+
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        const filterType = typeFilter ? typeFilter.value : 'all';
+
+        transactionItems.forEach(item => {
+            let showItem = true;
+
+            // Search filter - check description, amount, and participant
+            if (searchTerm) {
+                const description = item.querySelector('.transaction-description')?.textContent.toLowerCase() || '';
+                const amount = item.querySelector('.transaction-amount')?.textContent.toLowerCase() || '';
+                const participant = item.querySelector('.transaction-participant')?.textContent.toLowerCase() || '';
+                
+                if (!description.includes(searchTerm) && !amount.includes(searchTerm) && !participant.includes(searchTerm)) {
+                    showItem = false;
+                }
+            }
+
+            // Type filter - check if incoming or outgoing
+            if (filterType !== 'all' && showItem) {
+                const amountElement = item.querySelector('.transaction-amount');
+                const isPositive = amountElement?.classList.contains('positive');
+                
+                if (filterType === 'incoming' && !isPositive) {
+                    showItem = false;
+                } else if (filterType === 'outgoing' && isPositive) {
+                    showItem = false;
+                }
+            }
+
+            item.style.display = showItem ? 'flex' : 'none';
+        });
+    }
+
+    clearFilters() {
+        const searchInput = document.getElementById('transactionSearch');
+        const typeFilter = document.getElementById('transactionTypeFilter');
+        const transactionItems = document.querySelectorAll('.transaction-item');
+
+        if (searchInput) searchInput.value = '';
+        if (typeFilter) typeFilter.value = 'all';
+
+        // Show all transactions
+        transactionItems.forEach(item => {
+            item.style.display = 'flex';
+        });
+    }
+
+    async downloadStatement() {
+        try {
+            // Check if user is logged in
+            if (!this.isLoggedIn || !this.currentUser) {
+                throw new Error('Please log in to download your statement');
+            }
+
+            // Get all transactions for the current user
+            console.log('Fetching transactions for statement...');
+            const response = await this.api.getTransactions(100); // Get up to 100 transactions
+            
+            // The backend returns {transactions: [...]} directly, not {success: true, transactions: [...]}
+            if (!response || !Array.isArray(response.transactions)) {
+                throw new Error('Invalid response format from server');
+            }
+
+            console.log('Transactions fetched successfully:', response.transactions?.length || 0, 'transactions');
+
+            // Create PDF
+            await this.generatePDF(response.transactions || []);
+            
+        } catch (error) {
+            console.error('Error downloading statement:', error);
+            this.showMessage(`Error downloading statement: ${error.message}`, 'error');
+        }
+    }
+
+    async generatePDF(transactions) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Get current account info for the PDF
+        let currentBalance = '0.00';
+        try {
+            const balanceResponse = await this.api.getBalance();
+            if (balanceResponse && balanceResponse.balance !== undefined) {
+                currentBalance = balanceResponse.balance.toFixed(2);
+            }
+        } catch (error) {
+            console.warn('Could not fetch current balance for PDF:', error);
+        }
+
+        // Function to load and add logo
+        const addLogo = async (x, y, width, height) => {
+            try {
+                const logoImg = new Image();
+                logoImg.crossOrigin = 'anonymous';
+                
+                return new Promise((resolve) => {
+                    logoImg.onload = () => {
+                        try {
+                            // Create a canvas to convert the image
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            canvas.width = logoImg.width;
+                            canvas.height = logoImg.height;
+                            ctx.drawImage(logoImg, 0, 0);
+                            
+                            // Get image data and add to PDF
+                            const imgData = canvas.toDataURL('image/png');
+                            doc.addImage(imgData, 'PNG', x, y, width, height);
+                        } catch (err) {
+                            console.warn('Error processing logo image:', err);
+                        }
+                        resolve();
+                    };
+                    logoImg.onerror = () => {
+                        console.warn('Could not load logo image');
+                        resolve(); // Continue without logo
+                    };
+                    // Use relative path for the logo
+                    logoImg.src = 'assets/viridiancitybank.png';
+                });
+            } catch (error) {
+                console.warn('Could not add logo to PDF:', error);
+            }
+        };
+
+        // Add logo to first page
+        await addLogo(150, 10, 45, 18);
+
+        // Set font
+        doc.setFont("helvetica");
+        
+        // Header - Bank Title (larger and more prominent)
+        doc.setFontSize(22);
+        doc.setTextColor(64, 130, 109); // Bank green color
+        doc.text("VIRIDIAN CITY BANK", 20, 30);
+        
+        // Add bank address
+        doc.setFontSize(8);
+        doc.setTextColor(80, 80, 80);
+        doc.text("Viridian Co., Bank Lane", 155, 35);
+        doc.text("Viridian City, Kanto 00001", 152, 42);
+        doc.text("Phone: (555) VIR-BANK", 154, 49);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text("OFFICIAL BANK STATEMENT", 20, 40);
+        
+        // Account Information Box
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        const currentDate = new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        // Helper function to get currency symbol (using PKD for PokéDollars)
+        const getCurrencySymbol = () => {
+            return "PKD";
+        };
+
+        const currencySymbol = getCurrencySymbol();
+
+        // Account info background
+        doc.setFillColor(248, 249, 250);
+        doc.rect(15, 55, 180, 35, 'F');
+        
+        doc.text(`Statement Date: ${currentDate}`, 20, 65);
+        doc.text(`Account Holder: ${this.currentUser?.username || 'Unknown'}`, 20, 75);
+        doc.text(`Account Number: ${this.currentUser?.account_number || 'Unknown'}`, 20, 85);
+        
+        // Current balance prominently displayed
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(64, 130, 109);
+        doc.text(`Current Balance: ${currentBalance} (PKD)`, 110, 75);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        
+        // Line separator
+        doc.setLineWidth(0.5);
+        doc.setTextColor(200, 200, 200);
+        doc.line(15, 100, 195, 100);
+        
+        // Transaction Header
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(64, 130, 109);
+        doc.text("TRANSACTION HISTORY", 20, 115);
+        
+        // Table headers with background
+        doc.setFillColor(248, 249, 250);
+        doc.rect(15, 120, 180, 10, 'F');
+        
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("Date", 20, 127);
+        doc.text("Description", 50, 127);
+        doc.text("From/To", 105, 127);
+        doc.text("Amount", 155, 127);
+        
+        // Line under headers
+        doc.setLineWidth(0.3);
+        doc.setTextColor(200, 200, 200);
+        doc.line(15, 132, 195, 132);
+        
+        // Transaction rows
+        let yPosition = 142;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        
+        if (transactions && transactions.length > 0) {
+            for (const transaction of transactions) {
+                if (yPosition > 270) { // Start new page if needed
+                    doc.addPage();
+                    yPosition = 40;
+                    
+                    // Add logo to new page as well
+                    await addLogo(120, 10, 60, 27);
+                    
+                    // Add header on new page
+                    doc.setFontSize(14);
+                    doc.setFont("helvetica", "bold");
+                    doc.setTextColor(64, 130, 109);
+                    doc.text("TRANSACTION HISTORY (continued)", 20, 30);
+                    
+                    // Table headers on new page
+                    doc.setFillColor(248, 249, 250);
+                    doc.rect(15, 35, 180, 10, 'F');
+                    
+                    doc.setFontSize(9);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text("Date", 20, 42);
+                    doc.text("Description", 50, 42);
+                    doc.text("From/To", 105, 42);
+                    doc.text("Amount", 155, 42);
+                    
+                    doc.setLineWidth(0.3);
+                    doc.line(15, 47, 195, 47);
+                    
+                    yPosition = 55;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(8);
+                }
+                
+                const date = new Date(transaction.created_at).toLocaleDateString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    year: '2-digit'
+                });
+                
+                const isPositive = transaction.amount > 0;
+                const participant = isPositive 
+                    ? `From: ${transaction.from_username || 'Unknown'}`
+                    : `To: ${transaction.to_username || 'Unknown'}`;
+                
+                const amount = `${isPositive ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}`;
+                
+                // Alternating row background
+                if ((yPosition - 142) / 12 % 2 === 1) {
+                    doc.setFillColor(252, 252, 252);
+                    doc.rect(15, yPosition - 8, 180, 10, 'F');
+                }
+                
+                doc.setTextColor(0, 0, 0); // Black for other text
+                doc.text(date, 20, yPosition);
+                doc.text(transaction.description.substring(0, 20) + (transaction.description.length > 20 ? '...' : ''), 50, yPosition);
+                doc.text(participant.substring(0, 18) + (participant.length > 18 ? '...' : ''), 105, yPosition);
+                
+                // Amount in color
+                if (isPositive) {
+                    doc.setTextColor(0, 150, 0);
+                } else {
+                    doc.setTextColor(200, 0, 0);
+                }
+                doc.text(amount, 155, yPosition);
+                doc.setTextColor(0, 0, 0); // Reset to black
+                
+                yPosition += 12;
+            }
+        } else {
+            doc.text("No transactions found for this account", 20, yPosition);
+        }
+        
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text("This is an electronically generated statement from Viridian City Bank", 20, 280);
+        doc.text("For questions, contact us in the #VCB channel on irc.h4ks.com", 20, 290);
+        
+        // Save the PDF
+        const filename = `statement_${this.currentUser?.username || 'account'}_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(filename);
+        
+        this.showMessage('Statement downloaded successfully!', 'success');
+    }
+
     createTransactionHTML(transaction) {
         const isPositive = transaction.amount > 0;
         const iconClass = 'fa-exchange-alt';
         const iconType = 'transfer';
         
         const formattedDate = this.formatDate(transaction.created_at || transaction.date);
+        
+        // Determine transaction direction and participants
+        const currentUserId = this.currentUser?.id;
+        let transactionDetails = '';
+        
+        if (isPositive) {
+            // Incoming transaction
+            transactionDetails = `From: ${transaction.from_username || 'Unknown'}`;
+        } else {
+            // Outgoing transaction
+            transactionDetails = `To: ${transaction.to_username || 'Unknown'}`;
+        }
         
         return `
             <div class="transaction-item">
@@ -906,13 +1250,14 @@ class BankingApp {
                         <i class="fas ${iconClass}"></i>
                     </div>
                     <div class="transaction-details">
-                        <h4>${transaction.description}</h4>
-                        <p>${formattedDate}</p>
+                        <h4 class="transaction-description">${transaction.description}</h4>
+                        <p class="transaction-date">${formattedDate}</p>
+                        <p class="transaction-participant">${transactionDetails}</p>
                         ${transaction.memo ? `<p><em>${transaction.memo}</em></p>` : ''}
                     </div>
                 </div>
                 <div class="transaction-amount ${isPositive ? 'positive' : 'negative'}">
-                    ${isPositive ? '+' : ''}$${Math.abs(transaction.amount).toFixed(2)}
+                    ${isPositive ? '+' : '-'}₽${Math.abs(transaction.amount).toFixed(2)}
                 </div>
             </div>
         `;

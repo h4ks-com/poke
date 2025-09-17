@@ -137,14 +137,14 @@ class BankAPI {
         return await this.handleResponse(response);
     }
 
-    async transfer(toAccountNumber, amount, description = '') {
+    async transfer(to, amount, description = '') {
         console.log(`[API] POST ${this.baseURL}/transfer`);
         
         const response = await fetch(`${this.baseURL}/transfer`, {
             method: 'POST',
             headers: this.getHeaders(),
             body: JSON.stringify({
-                toAccountNumber,
+                to,
                 amount: parseFloat(amount),
                 description
             })
@@ -154,14 +154,14 @@ class BankAPI {
     }
 
     // Payment request endpoints
-    async createPaymentRequest(toUsername, amount, reason, message = '') {
+    async createPaymentRequest(to, amount, reason, message = '') {
         console.log(`[API] POST ${this.baseURL}/payment-requests`);
         
         const response = await fetch(`${this.baseURL}/payment-requests`, {
             method: 'POST',
             headers: this.getHeaders(),
             body: JSON.stringify({
-                toUsername,
+                to,
                 amount: parseFloat(amount),
                 reason,
                 message

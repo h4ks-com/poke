@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/http"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,6 +49,34 @@ func authMiddleware() gin.HandlerFunc {
 		c.Set("userID", user.ID)
 		c.Set("user", user)
 		c.Set("sessionToken", token)
+
+		c.Next()
+	}
+}
+
+// adminAuthMiddleware validates admin authentication
+func adminAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		adminKey := c.GetHeader("X-Admin-Key")
+		if adminKey == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin key required"})
+			c.Abort()
+			return
+		}
+
+		// Get admin key from environment
+		expectedAdminKey := getEnv("ADMIN_KEY", "")
+		if expectedAdminKey == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Admin functionality not configured"})
+			c.Abort()
+			return
+		}
+
+		if adminKey != expectedAdminKey {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid admin key"})
+			c.Abort()
+			return
+		}
 
 		c.Next()
 	}

@@ -37,7 +37,11 @@ func main() {
 
 	// Initialize handlers
 	authHandler := NewAuthHandler(userService, webhookService)
-	bankingHandler := NewBankingHandler(bankingService, webhookService, cardService)
+	bankingHandler := NewBankingHandler(bankingService, userService, webhookService, cardService)
+	adminHandler := NewAdminHandler(bankingService, userService, webhookService)
+
+	// Ensure PokéBank has fixed balance on startup
+	bankingService.EnsurePokeBankBalance()
 
 	// Initialize Gin router
 	r := gin.Default()
@@ -82,6 +86,17 @@ func main() {
 			protected.PUT("/payment-requests/:id", bankingHandler.HandlePaymentRequestHandler)
 			protected.GET("/card", bankingHandler.GetCardHandler)
 			protected.POST("/card/refresh", bankingHandler.RefreshCardHandler)
+		}
+
+		// Admin routes (require admin authentication)
+		admin := api.Group("/admin")
+		admin.Use(adminAuthMiddleware())
+		{
+			admin.POST("/adjust-balance", adminHandler.AdjustBalanceHandler)
+			admin.POST("/merchant-transaction", adminHandler.CreateMerchantTransactionHandler)
+			admin.POST("/bank-transfer", adminHandler.BankTransferHandler)
+			admin.GET("/users", adminHandler.GetAllUsersHandler)
+			admin.GET("/user/:account", adminHandler.GetUserByAccountHandler)
 		}
 	}
 

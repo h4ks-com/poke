@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 // BankingService handles banking-related database operations
@@ -74,10 +75,16 @@ func (s *BankingService) Transfer(fromUserID int, toAccountNumber string, amount
 	// Create transaction record
 	var transactionID int
 	err = tx.QueryRow(`
-		INSERT INTO transactions (from_user_id, to_user_id, amount, transaction_type, description, status)
-		VALUES (?, ?, ?, 'transfer', ?, 'completed')
+		INSERT INTO transactions (from_user_id, to_user_id, amount, transaction_type, description, status, created_at)
+		VALUES (?, ?, ?, 'transfer', ?, 'completed', ?)
 		RETURNING id
-	`, fromUserID, toUserID, amount, description).Scan(&transactionID)
+	`, fromUserID, toUserID, amount, description, time.Now()).Scan(&transactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reset PokéBank balance if involved in transaction
+	err = s.resetPokeBankBalanceInTx(tx, fromUserID, toUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +99,10 @@ func (s *BankingService) Transfer(fromUserID int, toAccountNumber string, amount
 }
 
 // CreatePaymentRequest creates a new payment request
-func (s *BankingService) CreatePaymentRequest(fromUserID int, toUsername string, amount float64, reason, message string) (*PaymentRequest, error) {
+func (s *BankingService) CreatePaymentRequest(fromUserID int, toAccountNumber string, amount float64, reason, message string) (*PaymentRequest, error) {
 	// Get recipient user ID
 	var toUserID int
-	err := s.db.QueryRow(`SELECT id FROM users WHERE username = ?`, toUsername).Scan(&toUserID)
+	err := s.db.QueryRow(`SELECT id FROM users WHERE account_number = ?`, toAccountNumber).Scan(&toUserID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("user not found")
@@ -135,18 +142,22 @@ func (s *BankingService) CreatePaymentRequest(fromUserID int, toUsername string,
 // GetUserTransactions gets transactions for a user
 func (s *BankingService) GetUserTransactions(userID int, limit int) ([]Transaction, error) {
 	query := `
-		SELECT t.id, t.from_user_id, t.to_user_id, t.amount, t.transaction_type, 
-		       t.description, t.status, t.created_at,
+		SELECT t.id, t.from_user_id, t.to_user_id, 
+		       CASE 
+		           WHEN t.from_user_id = ? THEN -t.amount 
+		           ELSE t.amount 
+		       END as amount,
+		       t.transaction_type, t.description, t.status, t.created_at,
 		       u1.username as from_username, u2.username as to_username
 		FROM transactions t
 		LEFT JOIN users u1 ON t.from_user_id = u1.id
 		LEFT JOIN users u2 ON t.to_user_id = u2.id
 		WHERE t.from_user_id = ? OR t.to_user_id = ?
-		ORDER BY t.created_at DESC
+		ORDER BY t.created_at DESC, t.id DESC
 		LIMIT ?
 	`
 
-	rows, err := s.db.Query(query, userID, userID, limit)
+	rows, err := s.db.Query(query, userID, userID, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +177,121 @@ func (s *BankingService) GetUserTransactions(userID int, limit int) ([]Transacti
 	}
 
 	return transactions, nil
+}
+
+// CreateAdminTransaction creates an administrative transaction for balance adjustment
+func (s *BankingService) CreateAdminTransaction(userID int, amount float64, description, merchantName string) (*Transaction, error) {
+	// Start transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// Get current balance to check if withdrawal is possible
+	if amount < 0 {
+		var currentBalance float64
+		err = tx.QueryRow(`SELECT balance FROM users WHERE id = ?`, userID).Scan(&currentBalance)
+		if err != nil {
+			return nil, err
+		}
+
+		if currentBalance+amount < 0 {
+			return nil, fmt.Errorf("insufficient balance for withdrawal")
+		}
+	}
+
+	// Update user balance
+	_, err = tx.Exec(`UPDATE users SET balance = balance + ? WHERE id = ?`, amount, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create transaction record with virtual merchant
+	var fromUserID, toUserID *int
+	if amount > 0 {
+		// Credit: money coming from merchant to user
+		toUserID = &userID
+		// fromUserID stays nil (virtual merchant)
+	} else {
+		// Debit: money going from user to merchant
+		fromUserID = &userID
+		// toUserID stays nil (virtual merchant)
+	}
+
+	transactionType := "admin_adjustment"
+	status := "completed"
+
+	query := `
+		INSERT INTO transactions (from_user_id, to_user_id, amount, transaction_type, description, status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := tx.Exec(query, fromUserID, toUserID, amount, transactionType, description, status, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	transactionID, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	// For admin transactions with virtual merchants, PokéBank isn't directly involved
+	// so no need to reset balance here
+
+	// Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	// Return created transaction with proper merchant name display
+	transaction := &Transaction{
+		ID:              int(transactionID),
+		Amount:          amount,
+		TransactionType: transactionType,
+		Description:     description,
+		Status:          status,
+		CreatedAt:       time.Now(),
+	}
+
+	if amount > 0 {
+		// Credit: From merchant to user
+		transaction.FromUserID = 0
+		transaction.ToUserID = userID
+		transaction.FromUsername = merchantName
+		transaction.ToUsername = ""
+	} else {
+		// Debit: From user to merchant
+		transaction.FromUserID = userID
+		transaction.ToUserID = 0
+		transaction.FromUsername = ""
+		transaction.ToUsername = merchantName
+	}
+
+	return transaction, nil
+}
+
+// CreateMerchantTransaction creates a transaction to/from a virtual merchant
+func (s *BankingService) CreateMerchantTransaction(userID int, amount float64, description, merchantName string) (*Transaction, error) {
+	return s.CreateAdminTransaction(userID, amount, description, merchantName)
+}
+
+// EnsurePokeBankBalance ensures PokéBank always has the fixed balance
+func (s *BankingService) EnsurePokeBankBalance() error {
+	const pokeBankBalance = 999999999.99
+	
+	// Find PokéBank user
+	var pokeBankID int
+	err := s.db.QueryRow(`SELECT id FROM users WHERE username = 'PokéBank'`).Scan(&pokeBankID)
+	if err != nil {
+		return err // PokéBank doesn't exist
+	}
+
+	// Update balance to fixed amount
+	_, err = s.db.Exec(`UPDATE users SET balance = ? WHERE id = ?`, pokeBankBalance, pokeBankID)
+	return err
 }
 
 // GetUserPaymentRequests gets payment requests for a user
@@ -278,15 +404,21 @@ func (s *BankingService) ApprovePaymentRequest(requestID, userID int) error {
 
 	// Create transaction record
 	_, err = tx.Exec(`
-		INSERT INTO transactions (from_user_id, to_user_id, amount, transaction_type, description, status)
-		VALUES (?, ?, ?, 'transfer', ?, 'completed')
-	`, userID, pr.FromUserID, pr.Amount, "Payment for: "+pr.Reason)
+		INSERT INTO transactions (from_user_id, to_user_id, amount, transaction_type, description, status, created_at)
+		VALUES (?, ?, ?, 'transfer', ?, 'completed', ?)
+	`, userID, pr.FromUserID, pr.Amount, "Payment for: "+pr.Reason, time.Now())
 	if err != nil {
 		return err
 	}
 
 	// Update payment request status
 	_, err = tx.Exec(`UPDATE payment_requests SET status = 'approved' WHERE id = ?`, requestID)
+	if err != nil {
+		return err
+	}
+
+	// Reset PokéBank balance if involved in transaction
+	err = s.resetPokeBankBalanceInTx(tx, userID, pr.FromUserID)
 	if err != nil {
 		return err
 	}
@@ -373,4 +505,31 @@ func (s *BankingService) getUsernameByID(userID int) (string, error) {
 	var username string
 	err := s.db.QueryRow(`SELECT username FROM users WHERE id = ?`, userID).Scan(&username)
 	return username, err
+}
+
+// resetPokeBankBalanceInTx resets PokéBank account balance to 999999999.99 if involved in transaction
+func (s *BankingService) resetPokeBankBalanceInTx(tx *sql.Tx, fromUserID, toUserID int) error {
+	const pokeBankBalance = 999999999.99
+	
+	// Check if sender is PokéBank and reset balance
+	var senderUsername string
+	err := tx.QueryRow(`SELECT username FROM users WHERE id = ?`, fromUserID).Scan(&senderUsername)
+	if err == nil && senderUsername == "PokéBank" {
+		_, err = tx.Exec(`UPDATE users SET balance = ? WHERE id = ?`, pokeBankBalance, fromUserID)
+		if err != nil {
+			return err
+		}
+	}
+	
+	// Check if recipient is PokéBank and reset balance
+	var recipientUsername string
+	err = tx.QueryRow(`SELECT username FROM users WHERE id = ?`, toUserID).Scan(&recipientUsername)
+	if err == nil && recipientUsername == "PokéBank" {
+		_, err = tx.Exec(`UPDATE users SET balance = ? WHERE id = ?`, pokeBankBalance, toUserID)
+		if err != nil {
+			return err
+		}
+	}
+	
+	return nil
 }
