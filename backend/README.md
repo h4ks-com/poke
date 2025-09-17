@@ -1,50 +1,48 @@
-# Viridian City Bank - Backend Setup
+# Viridian City Bank - Backend
 
-## Prerequisites
+> **Note**: For the complete dockerized setup including frontend, see the main project README and DOCKER_README.md in the root directory.
 
+This directory contains the Go backend for Viridian City Bank. The backend can be run standalone for development or as part of the unified Docker container.
+
+## Development Setup (Standalone Backend)
+
+### Prerequisites
 - Go 1.19 or higher
-- PostgreSQL 12 or higher
-- Git
+- SQLite (database file included)
 
-## Installation
+### Quick Start
+```bash
+cd backend
+go mod download
+go run .
+```
 
-1. **Clone the repository and navigate to backend directory:**
-   ```bash
-   cd backend
-   ```
+The backend will start on port 8080 and serve API endpoints at `/api/*`.
 
-2. **Install dependencies:**
-   ```bash
-   go mod download
-   ```
+## 🐳 Docker (Recommended)
 
-3. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env file with your database credentials and configuration
-   ```
+For production use, use the unified Docker setup from the root directory:
+```bash
+cd .. # Go to project root
+./run.sh
+# OR
+docker-compose up --build
+```
 
-4. **Set up PostgreSQL database:**
-   ```sql
-   -- Connect to PostgreSQL and create database
-   CREATE DATABASE viridian_bank;
-   
-   -- Create a user (optional)
-   CREATE USER bank_user WITH PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE viridian_bank TO bank_user;
-   ```
+This will run both frontend and backend together in a single container.
 
-5. **Run database migrations:**
-   ```bash
-   go run scripts/migrate.go
-   ```
+## Development vs Docker
 
-6. **Start the server:**
-   ```bash
-   go run .
-   ```
+### Development Mode (Standalone)
+- Backend only on port 8080
+- Frontend served separately (if needed)
+- Good for backend development and testing
 
-The server will start on the port specified in your `.env` file (default: 8080).
+### Docker Mode (Unified)
+- Backend + Frontend in one container
+- Backend serves static files AND API
+- Production-ready setup
+- Access everything at http://localhost:8080
 
 ## API Endpoints
 

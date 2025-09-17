@@ -60,6 +60,15 @@ func main() {
 		c.Next()
 	})
 
+	// Serve static files (CSS, JS, assets)
+	r.Static("/css", "./css")
+	r.Static("/js", "./js")
+	r.Static("/assets", "./assets")
+
+	// Serve main HTML files
+	r.StaticFile("/", "./index.html")
+	r.StaticFile("/debug_test.html", "./debug_test.html")
+
 	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
