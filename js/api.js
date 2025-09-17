@@ -1,7 +1,7 @@
 // Viridian City Bank API Client
 class BankAPI {
     constructor() {
-        this.baseURL = 'http://localhost:8088/api'; // Golang backend URL
+        this.baseURL = '/api'; // Same origin since frontend and backend are served together
         this.token = localStorage.getItem('authToken');
     }
 
