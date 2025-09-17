@@ -1,0 +1,935 @@
+{
+  "name": "Banking API - Payment Request Management",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/api/payment-request",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "create-request-webhook",
+      "name": "Create Payment Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [260, 200],
+      "webhookId": "create-payment-request"
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "/api/payment-requests",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "get-requests-webhook",
+      "name": "Get Payment Requests Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [260, 500],
+      "webhookId": "get-payment-requests"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/api/payment-request/{{$node.Webhook.json[\"query\"][\"id\"]}}/respond",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "respond-request-webhook",
+      "name": "Respond to Payment Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [260, 800],
+      "webhookId": "respond-payment-request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate create payment request\nconst authHeader = $input.first().json.headers.authorization;\nif (!authHeader || !authHeader.startsWith('Bearer ')) {\n  return { error: 'No valid authorization token', statusCode: 401 };\n}\n\nconst token = authHeader.replace('Bearer ', '');\nconst body = $input.first().json.body;\n\nif (!body.fromUser || !body.amount || !body.description) {\n  return { error: 'Missing required fields: fromUser, amount, description', statusCode: 400 };\n}\n\nconst amount = parseFloat(body.amount);\nif (isNaN(amount) || amount <= 0) {\n  return { error: 'Invalid amount', statusCode: 400 };\n}\n\nreturn {\n  token,\n  fromUser: body.fromUser.toString(),\n  amount: amount,\n  description: body.description.toString()\n};"
+      },
+      "id": "validate-create-request",
+      "name": "Validate Create Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate get payment requests\nconst authHeader = $input.first().json.headers.authorization;\nif (!authHeader || !authHeader.startsWith('Bearer ')) {\n  return { error: 'No valid authorization token', statusCode: 401 };\n}\n\nconst token = authHeader.replace('Bearer ', '');\nconst type = $input.first().json.query.type || 'received'; // 'sent' or 'received'\n\nreturn { token, type };"
+      },
+      "id": "validate-get-requests",
+      "name": "Validate Get Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate respond to payment request\nconst authHeader = $input.first().json.headers.authorization;\nif (!authHeader || !authHeader.startsWith('Bearer ')) {\n  return { error: 'No valid authorization token', statusCode: 401 };\n}\n\nconst token = authHeader.replace('Bearer ', '');\nconst requestId = $input.first().json.query.id;\nconst body = $input.first().json.body;\n\nif (!requestId) {\n  return { error: 'Missing request ID', statusCode: 400 };\n}\n\nif (!body.action || !['accept', 'reject'].includes(body.action)) {\n  return { error: 'Invalid action. Must be accept or reject', statusCode: 400 };\n}\n\nreturn {\n  token,\n  requestId: parseInt(requestId),\n  action: body.action\n};"
+      },
+      "id": "validate-respond-request",
+      "name": "Validate Respond Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 800]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.username FROM users u JOIN user_sessions s ON u.id = s.user_id WHERE s.session_token = $1 AND s.expires_at > NOW()",
+        "additionalFields": {
+          "values": "={{ [$json.token] }}"
+        }
+      },
+      "id": "auth-create-user",
+      "name": "Authenticate Create User",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [700, 200],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.username FROM users u JOIN user_sessions s ON u.id = s.user_id WHERE s.session_token = $1 AND s.expires_at > NOW()",
+        "additionalFields": {
+          "values": "={{ [$json.token] }}"
+        }
+      },
+      "id": "auth-get-user",
+      "name": "Authenticate Get User",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [700, 500],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.username, u.balance FROM users u JOIN user_sessions s ON u.id = s.user_id WHERE s.session_token = $1 AND s.expires_at > NOW()",
+        "additionalFields": {
+          "values": "={{ [$json.token] }}"
+        }
+      },
+      "id": "auth-respond-user",
+      "name": "Authenticate Respond User",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [700, 800],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "create-user-auth",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-create-auth",
+      "name": "Create User Authenticated?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [920, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "get-user-auth",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-get-auth",
+      "name": "Get User Authenticated?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [920, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "respond-user-auth",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-respond-auth",
+      "name": "Respond User Authenticated?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [920, 800]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id FROM users WHERE username = $1",
+        "additionalFields": {
+          "values": "={{ [$node[\"Validate Create Request\"].json.fromUser] }}"
+        }
+      },
+      "id": "find-from-user",
+      "name": "Find From User",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1140, 140],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "from-user-exists",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-from-user-exists",
+      "name": "From User Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1360, 140]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO payment_requests (from_user_id, to_user_id, amount, description, status) VALUES ($1, $2, $3, $4, 'pending') RETURNING request_id",
+        "additionalFields": {
+          "values": "={{ [$json[0].id, $node[\"Authenticate Create User\"].json[0].id, $node[\"Validate Create Request\"].json.amount, $node[\"Validate Create Request\"].json.description] }}"
+        }
+      },
+      "id": "create-payment-request",
+      "name": "Create Payment Request",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1580, 80],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"message\": \"Payment request created successfully\",\n  \"requestId\": $json[0].request_id,\n  \"amount\": $node[\"Validate Create Request\"].json.amount,\n  \"fromUser\": $node[\"Validate Create Request\"].json.fromUser\n} }}",
+        "options": {}
+      },
+      "id": "create-success-response",
+      "name": "Create Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1800, 80]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT pr.request_id, pr.amount, pr.description, pr.status, pr.created_at, uf.username as from_username, ut.username as to_username FROM payment_requests pr JOIN users uf ON pr.from_user_id = uf.id JOIN users ut ON pr.to_user_id = ut.id WHERE (CASE WHEN $2 = 'sent' THEN pr.to_user_id = $1 ELSE pr.from_user_id = $1 END) AND pr.status = 'pending' ORDER BY pr.created_at DESC",
+        "additionalFields": {
+          "values": "={{ [$json[0].id, $node[\"Validate Get Requests\"].json.type] }}"
+        }
+      },
+      "id": "get-payment-requests",
+      "name": "Get Payment Requests",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1140, 440],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format payment requests for frontend\nconst requests = $json;\nconst type = $node[\"Validate Get Requests\"].json.type;\n\nconst formattedRequests = requests.map(req => ({\n  id: req.request_id,\n  amount: parseFloat(req.amount),\n  description: req.description,\n  status: req.status,\n  date: req.created_at,\n  fromUser: req.from_username,\n  toUser: req.to_username,\n  type: type === 'sent' ? 'sent' : 'received'\n}));\n\nreturn {\n  requests: formattedRequests,\n  total: formattedRequests.length,\n  type: type\n};"
+      },
+      "id": "format-payment-requests",
+      "name": "Format Payment Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1360, 440]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "get-requests-response",
+      "name": "Get Requests Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1580, 440]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT pr.request_id, pr.from_user_id, pr.amount, pr.status, uf.username as from_username FROM payment_requests pr JOIN users uf ON pr.from_user_id = uf.id WHERE pr.request_id = $1 AND pr.from_user_id = $2 AND pr.status = 'pending'",
+        "additionalFields": {
+          "values": "={{ [$json.requestId, $node[\"Authenticate Respond User\"].json[0].id] }}"
+        }
+      },
+      "id": "validate-payment-request",
+      "name": "Validate Payment Request",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1140, 740],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "request-valid",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-request-valid",
+      "name": "Request Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1360, 740]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "action-is-accept",
+              "leftValue": "={{ $node[\"Validate Respond Request\"].json.action }}",
+              "rightValue": "accept",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-action-accept",
+      "name": "Action is Accept?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1580, 680]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if user has sufficient balance for acceptance\nconst userBalance = parseFloat($node[\"Authenticate Respond User\"].json[0].balance);\nconst requestAmount = parseFloat($json[0].amount);\n\nif (userBalance < requestAmount) {\n  return { error: 'Insufficient balance to accept payment request', statusCode: 400 };\n}\n\nreturn {\n  sufficient: true,\n  fromUserId: $json[0].from_user_id,\n  toUserId: $node[\"Authenticate Respond User\"].json[0].id,\n  amount: requestAmount,\n  requestId: $json[0].request_id\n};"
+      },
+      "id": "check-balance-accept",
+      "name": "Check Balance for Accept",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 620]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "balance-sufficient",
+              "leftValue": "={{ !$json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-balance-sufficient",
+      "name": "Balance Sufficient?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2020, 620]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "BEGIN; UPDATE payment_requests SET status = 'accepted', responded_at = NOW() WHERE request_id = $1; UPDATE users SET balance = balance - $2 WHERE id = $3; UPDATE users SET balance = balance + $2 WHERE id = $4; INSERT INTO transactions (from_user_id, to_user_id, amount, transaction_type, description, memo) VALUES ($3, $4, $2, 'transfer', 'Payment Request Accepted', 'Payment via request #' || $1); COMMIT;",
+        "additionalFields": {
+          "values": "={{ [$json.requestId, $json.amount, $json.toUserId, $json.fromUserId] }}"
+        }
+      },
+      "id": "execute-accept-payment",
+      "name": "Execute Accept Payment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [2240, 560],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE payment_requests SET status = 'rejected', responded_at = NOW() WHERE request_id = $1",
+        "additionalFields": {
+          "values": "={{ [$json[0].request_id] }}"
+        }
+      },
+      "id": "execute-reject-payment",
+      "name": "Execute Reject Payment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1580, 780],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Banking Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"message\": \"Payment request accepted successfully\",\n  \"requestId\": $node[\"Check Balance for Accept\"].json.requestId,\n  \"amount\": $node[\"Check Balance for Accept\"].json.amount\n} }}",
+        "options": {}
+      },
+      "id": "accept-success-response",
+      "name": "Accept Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2460, 560]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"message\": \"Payment request rejected successfully\",\n  \"requestId\": $json[0].request_id\n} }}",
+        "options": {}
+      },
+      "id": "reject-success-response",
+      "name": "Reject Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1800, 780]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"From user not found\", \"message\": \"The specified from user does not exist\"}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "id": "from-user-not-found-response",
+      "name": "From User Not Found Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1360, 240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Payment request not found\", \"message\": \"Invalid request ID or not authorized to respond\"}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "id": "request-not-found-response",
+      "name": "Request Not Found Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1360, 840]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $node[\"Check Balance for Accept\"].json }}",
+        "options": {
+          "responseCode": "={{ $node[\"Check Balance for Accept\"].json.statusCode || 400 }}"
+        }
+      },
+      "id": "insufficient-balance-response",
+      "name": "Insufficient Balance Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2020, 720]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid or expired session\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "unauthorized-create-response",
+      "name": "Unauthorized Create Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid or expired session\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "unauthorized-get-response",
+      "name": "Unauthorized Get Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [920, 600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"error\": \"Unauthorized\", \"message\": \"Invalid or expired session\"}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "unauthorized-respond-response",
+      "name": "Unauthorized Respond Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [920, 900]
+    }
+  ],
+  "connections": {
+    "Create Payment Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Create Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Payment Requests Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Get Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Payment Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Respond Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Create Request": {
+      "main": [
+        [
+          {
+            "node": "Authenticate Create User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Get Requests": {
+      "main": [
+        [
+          {
+            "node": "Authenticate Get User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Respond Request": {
+      "main": [
+        [
+          {
+            "node": "Authenticate Respond User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authenticate Create User": {
+      "main": [
+        [
+          {
+            "node": "Create User Authenticated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authenticate Get User": {
+      "main": [
+        [
+          {
+            "node": "Get User Authenticated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authenticate Respond User": {
+      "main": [
+        [
+          {
+            "node": "Respond User Authenticated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create User Authenticated?": {
+      "main": [
+        [
+          {
+            "node": "Find From User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unauthorized Create Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Authenticated?": {
+      "main": [
+        [
+          {
+            "node": "Get Payment Requests",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unauthorized Get Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond User Authenticated?": {
+      "main": [
+        [
+          {
+            "node": "Validate Payment Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unauthorized Respond Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find From User": {
+      "main": [
+        [
+          {
+            "node": "From User Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "From User Exists?": {
+      "main": [
+        [
+          {
+            "node": "Create Payment Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "From User Not Found Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Payment Request": {
+      "main": [
+        [
+          {
+            "node": "Create Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Payment Requests": {
+      "main": [
+        [
+          {
+            "node": "Format Payment Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Payment Requests": {
+      "main": [
+        [
+          {
+            "node": "Get Requests Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payment Request": {
+      "main": [
+        [
+          {
+            "node": "Request Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Valid?": {
+      "main": [
+        [
+          {
+            "node": "Action is Accept?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request Not Found Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action is Accept?": {
+      "main": [
+        [
+          {
+            "node": "Check Balance for Accept",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Reject Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Balance for Accept": {
+      "main": [
+        [
+          {
+            "node": "Balance Sufficient?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Balance Sufficient?": {
+      "main": [
+        [
+          {
+            "node": "Execute Accept Payment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insufficient Balance Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Accept Payment": {
+      "main": [
+        [
+          {
+            "node": "Accept Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Reject Payment": {
+      "main": [
+        [
+          {
+            "node": "Reject Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "banking-payment-request-workflow",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Test</title>
+</head>
+<body>
+    <h1>Debug Test</h1>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded');
+            const showRegisterBtn = document.getElementById('showRegisterBtn');
+            console.log('Button found:', showRegisterBtn);
+            
+            // Open the main app
+            window.open('index.html', '_blank');
+        });
+    </script>
+</body>
+</html>

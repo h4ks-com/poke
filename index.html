@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viridian City Bank</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <div class="bank-logo">
+                <img src="assets/viridiancitybank.png" alt="Viridian City Bank" class="bank-logo-img">
+                <h1>Viridian City Bank</h1>
+            </div>
+            
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Sign In
+                </button>
+            </form>
+            
+            <div class="login-options">
+                <button id="showRegisterBtn" class="register-btn">
+                    <i class="fas fa-user-plus"></i>
+                    Create New Account
+                </button>
+            </div>
+            
+            <div class="login-footer">
+                <p>&copy; 2025 Viridian City Bank. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Banking Dashboard -->
+    <div id="bankingDashboard" class="dashboard-container" style="display: none;">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <div class="bank-title">
+                    <img src="assets/viridiancitybank.png" alt="Viridian City Bank" class="bank-logo-img">
+                    <h1>Viridian City Bank</h1>
+                    <span class="virtual-badge">in partnership with h4ks.com</span>
+                </div>
+                
+                <div class="user-info">
+                    <span class="welcome-text">Welcome, <span id="currentUser">Player</span></span>
+                    <div class="user-menu">
+                        <button id="userMenuBtn" class="user-menu-btn">
+                            <i class="fas fa-user-circle"></i>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div id="userDropdown" class="user-dropdown">
+                            <button id="changePasswordBtn" class="dropdown-item">
+                                <i class="fas fa-key"></i>
+                                Change Password
+                            </button>
+                            <button id="logoutBtn" class="dropdown-item logout-item">
+                                <i class="fas fa-sign-out-alt"></i>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <main class="dashboard-main">
+            <!-- Account Overview -->
+            <section class="account-overview">
+                <div class="balance-card">
+                    <h2>Account Balance</h2>
+                    <div class="balance-amount">
+                        <span class="currency">₽</span>
+                        <span id="accountBalance"><i class="fas fa-spinner fa-spin"></i></span>
+                    </div>
+                    <div class="account-info">
+                        <span id="accountNumberDisplay">Account: <i class="fas fa-spinner fa-spin"></i></span>
+                        <button id="toggleAccountBtn" class="toggle-btn" style="display: none;" title="Show/Hide full account number">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button id="copyAccountBtn" class="copy-btn" style="display: none;" title="Copy account number">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="quick-actions">
+                    <button class="action-btn" id="transferBtn">
+                        <i class="fas fa-exchange-alt"></i>
+                        Transfer Money
+                    </button>
+                    <button class="action-btn" id="requestBtn">
+                        <i class="fas fa-hand-holding-usd"></i>
+                        Request Money
+                    </button>
+                    <button class="action-btn" id="viewCardBtn">
+                        <i class="fas fa-credit-card"></i>
+                        View My Card
+                    </button>
+                </div>
+            </section>
+
+            <!-- Recent Transactions -->
+            <section class="transactions-section">
+                <h3>Recent Transactions</h3>
+                <div class="transactions-list" id="transactionsList">
+                    <!-- Transactions will be populated by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Payment Requests -->
+            <section class="payment-requests-section">
+                <h3>Payment Requests</h3>
+                <div class="payment-requests-tabs">
+                    <button class="tab-btn active" id="incomingTab">
+                        <i class="fas fa-inbox"></i>
+                        Incoming (<span id="incomingCount">0</span>)
+                    </button>
+                    <button class="tab-btn" id="outgoingTab">
+                        <i class="fas fa-paper-plane"></i>
+                        Sent (<span id="outgoingCount">0</span>)
+                    </button>
+                </div>
+                <div class="payment-requests-content">
+                    <div class="payment-requests-list" id="incomingRequests">
+                        <!-- Incoming requests will be populated by JavaScript -->
+                    </div>
+                    <div class="payment-requests-list" id="outgoingRequests" style="display: none;">
+                        <!-- Outgoing requests will be populated by JavaScript -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Request Money Modal -->
+    <div id="requestModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Request Money</h3>
+                <button class="close-btn" id="closeRequestModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="requestForm" class="request-form">
+                <div class="form-group">
+                    <label for="requestFromAccount">Request From</label>
+                    <input type="text" id="requestFromAccount" placeholder="Enter account username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="requestAmount">Amount</label>
+                    <div class="amount-input">
+                        <span class="currency-symbol">₽</span>
+                        <input type="number" id="requestAmount" placeholder="0.00" step="0.01" min="0.01" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="requestReason">Reason</label>
+                    <input type="text" id="requestReason" placeholder="What is this payment for?" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="requestMessage">Message (Optional)</label>
+                    <textarea id="requestMessage" placeholder="Additional message..." rows="3"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancelRequest">Cancel</button>
+                    <button type="submit" class="confirm-btn">
+                        <i class="fas fa-paper-plane"></i>
+                        Send Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transfer Modal -->
+    <div id="transferModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Transfer Money</h3>
+                <button class="close-btn" id="closeTransferModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="transferForm" class="transfer-form">
+                <div class="form-group">
+                    <label for="recipientAccount">Recipient Account</label>
+                    <input type="text" id="recipientAccount" placeholder="Enter account number" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transferAmount">Amount</label>
+                    <div class="amount-input">
+                        <span class="currency-symbol">₽</span>
+                        <input type="number" id="transferAmount" placeholder="0.00" step="0.01" min="0.01" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="transferMemo">Memo (Optional)</label>
+                    <input type="text" id="transferMemo" placeholder="Payment description">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancelTransfer">Cancel</button>
+                    <button type="submit" class="confirm-btn">
+                        <i class="fas fa-paper-plane"></i>
+                        Send Transfer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Registration Modal -->
+    <div id="registrationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Create New Account</h3>
+                <button class="close-btn" id="closeRegistrationModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="registrationForm" class="modal-form">
+                <div class="form-group">
+                    <label for="regUsername">Username</label>
+                    <input type="text" id="regUsername" name="username" required placeholder="3-20 characters, letters/numbers/underscores only">
+                    <small class="form-hint">Choose a unique username (3-20 characters)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="regEmail">Email Address</label>
+                    <input type="email" id="regEmail" name="email" required placeholder="your.email@example.com">
+                    <small class="form-hint">We'll use this for account notifications</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <input type="password" id="regPassword" name="password" required placeholder="At least 8 characters">
+                    <small class="form-hint">Minimum 8 characters with at least one letter and one number</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="regConfirmPassword">Confirm Password</label>
+                    <input type="password" id="regConfirmPassword" name="confirmPassword" required placeholder="Confirm your password">
+                </div>
+                
+                <div class="registration-info">
+                    <p><i class="fas fa-gift"></i> New accounts start with <strong>1,000 ₽</strong> balance!</p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancelRegistration">Cancel</button>
+                    <button type="submit" class="confirm-btn">
+                        <i class="fas fa-user-plus"></i>
+                        Create Account
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-key"></i> Change Password</h3>
+                <button class="close-btn" id="closePasswordModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="passwordChangeForm" class="modal-form">
+                <div class="form-group">
+                    <label for="currentPassword">Current Password</label>
+                    <input type="password" id="currentPassword" name="currentPassword" required placeholder="Enter your current password">
+                </div>
+                
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" name="newPassword" required placeholder="At least 8 characters">
+                    <small class="form-hint">Minimum 8 characters with at least one letter and one number</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmNewPassword">Confirm New Password</label>
+                    <input type="password" id="confirmNewPassword" name="confirmNewPassword" required placeholder="Confirm your new password">
+                </div>
+                
+                <div class="password-warning">
+                    <p><i class="fas fa-exclamation-triangle"></i> You will be logged out and need to sign in again with your new password.</p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="cancelPasswordChange">Cancel</button>
+                    <button type="submit" class="confirm-btn">
+                        <i class="fas fa-key"></i>
+                        Change Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Virtual Bank Card Modal -->
+    <div id="cardModal" class="modal">
+        <div class="modal-content card-modal-content">
+            <div class="modal-header">
+                <h3>My Virtual Bank Card</h3>
+                <button class="close-btn" id="closeCardModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="card-container">
+                <div class="bank-card">
+                    <div class="card-front">
+                        <div class="card-header">
+                            <div class="bank-logo">
+                                <img src="assets/viridiancitybank.png" alt="Viridian City Bank" class="bank-logo-img">
+                                <span>Viridian City Bank</span>
+                            </div>
+                            <div class="card-type">
+                                <img src="assets/visadebit.png" alt="Visa Debit" class="visa-logo">
+                            </div>
+                        </div>
+                        <div class="card-chip">
+                            <div class="chip"></div>
+                            <div class="contactless-logo">
+                                <svg viewBox="0 0 100 100" class="contactless-icon">
+                                    <path d="M50,10 A40,40 0 0,1 90,50" stroke="currentColor" stroke-width="4" fill="none"/>
+                                    <path d="M50,20 A30,30 0 0,1 80,50" stroke="currentColor" stroke-width="4" fill="none"/>
+                                    <path d="M50,30 A20,20 0 0,1 70,50" stroke="currentColor" stroke-width="4" fill="none"/>
+                                    <path d="M50,40 A10,10 0 0,1 60,50" stroke="currentColor" stroke-width="4" fill="none"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="card-number" id="cardNumber">
+                            **** **** **** 1234
+                        </div>
+                        <div class="card-details">
+                            <div class="card-holder">
+                                <div class="card-label">CARD HOLDER</div>
+                                <div class="card-value" id="cardHolderName">JOHN DOE</div>
+                            </div>
+                            <div class="card-expiry">
+                                <div class="card-label">EXPIRES</div>
+                                <div class="card-value" id="cardExpiry">12/28</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-info">
+                    <h4>Card Information</h4>
+                    <div class="info-row">
+                        <span class="info-label">Card Number:</span>
+                        <span class="info-value" id="fullCardNumber">**** **** **** 1234</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Card Type:</span>
+                        <span class="info-value">Viridian Debit Card</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value active-status">Active</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Daily Limit:</span>
+                        <span class="info-value">₽50,000.00</span>
+                    </div>
+                    
+                    <div class="wallet-actions">
+                        <h5>Add to Digital Wallet</h5>
+                        <div class="wallet-buttons">
+                            <button class="wallet-btn apple-wallet-btn" id="addToAppleWallet">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm3.5 9.5h-7v-3h7v3z" fill="white"/>
+                                    <path d="M4 7.5h12v5H4z" stroke="white" stroke-width="1" fill="none"/>
+                                </svg>
+                                <span>Add to Apple Wallet</span>
+                            </button>
+                            <button class="wallet-btn google-pay-btn" id="addToGooglePay">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16z" fill="white"/>
+                                    <path d="M6 8h2v4H6V8zm3-1h2v6H9V7zm3 2h2v2h-2V9z" fill="#4285F4"/>
+                                </svg>
+                                <span>Add to Google Pay</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card-management">
+                        <h5>Card Management</h5>
+                        <button class="refresh-card-btn" id="refreshCardBtn">
+                            <i class="fas fa-sync-alt"></i>
+                            Get New Card
+                        </button>
+                        <p class="refresh-info">Replace your card with new numbers and expiry date. Available once per day.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="messageContainer" class="message-container"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
