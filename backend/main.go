@@ -62,6 +62,7 @@ func main() {
 	r.Static("/css", "./css")
 	r.Static("/js", "./js")
 	r.Static("/assets", "./assets")
+	r.Static("/fonts", "./fonts")
 
 	// Serve main HTML files
 	r.StaticFile("/", "./index.html")
