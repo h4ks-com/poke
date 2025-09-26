@@ -188,6 +188,13 @@ func (s *BankingService) CreateAdminTransaction(userID int, amount float64, desc
 	}
 	defer tx.Rollback()
 
+	// Get PokéBank user ID
+	var pokeBankID int
+	err = tx.QueryRow(`SELECT id FROM users WHERE username = 'PokéBank'`).Scan(&pokeBankID)
+	if err != nil {
+		return nil, err
+	}
+
 	// Get current balance to check if withdrawal is possible
 	if amount < 0 {
 		var currentBalance float64
@@ -207,16 +214,16 @@ func (s *BankingService) CreateAdminTransaction(userID int, amount float64, desc
 		return nil, err
 	}
 
-	// Create transaction record with virtual merchant
-	var fromUserID, toUserID *int
+	// Create transaction record
+	var fromUserID, toUserID int
 	if amount > 0 {
-		// Credit: money coming from merchant to user
-		toUserID = &userID
-		// fromUserID stays nil (virtual merchant)
+		// Credit: money coming from PokéBank to user
+		fromUserID = pokeBankID
+		toUserID = userID
 	} else {
-		// Debit: money going from user to merchant
-		fromUserID = &userID
-		// toUserID stays nil (virtual merchant)
+		// Debit: money going from user to PokéBank
+		fromUserID = userID
+		toUserID = pokeBankID
 	}
 
 	transactionType := "admin_adjustment"
@@ -237,8 +244,11 @@ func (s *BankingService) CreateAdminTransaction(userID int, amount float64, desc
 		return nil, err
 	}
 
-	// For admin transactions with virtual merchants, PokéBank isn't directly involved
-	// so no need to reset balance here
+	// Reset PokéBank balance since it's involved in the transaction
+	err = s.resetPokeBankBalanceInTx(tx, fromUserID, toUserID)
+	if err != nil {
+		return nil, err
+	}
 
 	// Commit transaction
 	err = tx.Commit()
@@ -246,31 +256,8 @@ func (s *BankingService) CreateAdminTransaction(userID int, amount float64, desc
 		return nil, err
 	}
 
-	// Return created transaction with proper merchant name display
-	transaction := &Transaction{
-		ID:              int(transactionID),
-		Amount:          amount,
-		TransactionType: transactionType,
-		Description:     description,
-		Status:          status,
-		CreatedAt:       time.Now(),
-	}
-
-	if amount > 0 {
-		// Credit: From merchant to user
-		transaction.FromUserID = 0
-		transaction.ToUserID = userID
-		transaction.FromUsername = merchantName
-		transaction.ToUsername = ""
-	} else {
-		// Debit: From user to merchant
-		transaction.FromUserID = userID
-		transaction.ToUserID = 0
-		transaction.FromUsername = ""
-		transaction.ToUsername = merchantName
-	}
-
-	return transaction, nil
+	// Get the created transaction with user details
+	return s.GetTransactionByID(int(transactionID))
 }
 
 // CreateMerchantTransaction creates a transaction to/from a virtual merchant
