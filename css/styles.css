@@ -1806,3 +1806,16 @@ textarea {
     height: 18px;
     filter: invert(13%) sepia(93%) saturate(6500%) hue-rotate(204deg) brightness(101%) contrast(106%);
 }
+
+/* Color adjustments for currency images */
+.balance-amount img {
+    filter: invert(1);
+}
+
+.transaction-amount.positive img {
+    filter: invert(48%) sepia(79%) saturate(1473%) hue-rotate(86deg) brightness(118%) contrast(119%);
+}
+
+.transaction-amount.negative img {
+    filter: invert(27%) sepia(51%) saturate(2878%) hue-rotate(346deg) brightness(104%) contrast(97%);
+}
