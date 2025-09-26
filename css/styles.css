@@ -415,7 +415,8 @@ body {
 }
 
 .currency {
-    font-size: 32px;
+    width: 32px;
+    height: 32px;
 }
 
 .account-number {
@@ -1055,9 +1056,9 @@ body {
     left: 18px;
     top: 50%;
     transform: translateY(-50%);
-    color: #2196F3;
-    font-weight: 700;
-    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    filter: invert(13%) sepia(93%) saturate(6500%) hue-rotate(204deg) brightness(101%) contrast(106%);
     z-index: 1;
 }
 
@@ -1284,7 +1285,8 @@ textarea {
     }
     
     .currency {
-        font-size: 24px;
+        width: 24px;
+        height: 24px;
     }
     
     .quick-actions {
@@ -1785,4 +1787,22 @@ textarea {
     .refresh-info {
         font-size: 11px;
     }
+}
+
+/* Currency symbol styles */
+.inline-currency {
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+}
+
+.currency img {
+    width: 32px;
+    height: 32px;
+}
+
+.currency-symbol img {
+    width: 18px;
+    height: 18px;
+    filter: invert(13%) sepia(93%) saturate(6500%) hue-rotate(204deg) brightness(101%) contrast(106%);
 }

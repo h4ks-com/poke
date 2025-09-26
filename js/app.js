@@ -1,4 +1,6 @@
 // Main Banking Application
+const CURRENCY_HTML = `<img src="assets/pokedollar.svg" class="inline-currency" alt="£">`;
+
 class BankingApp {
     constructor() {
         this.api = new BankAPI();
@@ -289,7 +291,7 @@ class BankingApp {
         try {
             const response = await this.api.createPaymentRequest(toUsername, amount, reason, message);
             
-            this.showMessage('success', 'Request Sent', `Payment request for £${amount.toFixed(2)} sent to ${toUsername}`);
+            this.showMessage('success', 'Request Sent', `Payment request for ${CURRENCY_HTML}${amount.toFixed(2)} sent to ${toUsername}`);
             this.closeModal('requestModal');
             this.refreshDashboard();
             
@@ -317,7 +319,7 @@ class BankingApp {
         try {
             const response = await this.api.transfer(recipientAccount, amount, memo);
             
-            this.showMessage('success', 'Transfer Successful', `£${amount.toFixed(2)} sent to ${recipientAccount}`);
+            this.showMessage('success', 'Transfer Successful', `${CURRENCY_HTML}${amount.toFixed(2)} sent to ${recipientAccount}`);
             this.closeModal('transferModal');
             this.refreshDashboard();
             
@@ -655,7 +657,7 @@ class BankingApp {
                         <p><strong>Date:</strong> ${formattedDate}</p>
                     </div>
                     <div>
-                        <div class="request-amount">£${request.amount.toFixed(2)}</div>
+                        <div class="request-amount">${CURRENCY_HTML}${request.amount.toFixed(2)}</div>
                         <div class="request-status ${statusClass}">${statusText}</div>
                     </div>
                 </div>
@@ -800,7 +802,7 @@ class BankingApp {
                         <p>Created: ${formattedDate}</p>
                     </div>
                     <div style="text-align: right;">
-                        <div class="request-amount">£${request.amount.toFixed(2)}</div>
+                        <div class="request-amount">${CURRENCY_HTML}${request.amount.toFixed(2)}</div>
                         <span class="request-status ${request.status}">${request.status}</span>
                     </div>
                 </div>
@@ -1257,7 +1259,7 @@ class BankingApp {
                     </div>
                 </div>
                 <div class="transaction-amount ${isPositive ? 'positive' : 'negative'}">
-                    ${isPositive ? '+' : '-'}£${Math.abs(transaction.amount).toFixed(2)}
+                    ${isPositive ? '+' : '-'}${CURRENCY_HTML}${Math.abs(transaction.amount).toFixed(2)}
                 </div>
             </div>
         `;
@@ -1469,7 +1471,7 @@ class BankingApp {
             bankName: 'Viridian City Bank',
             cardType: 'Debit',
             accountNumber: this.currentUser.accountNumber,
-            dailyLimit: '£50,000.00'
+            dailyLimit: `${CURRENCY_HTML}50,000.00`
         };
     }
 
@@ -1759,7 +1761,7 @@ class BankingApp {
             
             if (response.success) {
                 this.showMessage('success', 'Account Created!', 
-                    `Welcome ${response.user.username}! Your account has been created with ${response.user.balance} £. You can now log in.`);
+                    `Welcome ${response.user.username}! Your account has been created with ${response.user.balance} ${CURRENCY_HTML}. You can now log in.`);
                 this.closeModal('registrationModal');
                 
                 // Switch to login form
