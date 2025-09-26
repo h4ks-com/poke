@@ -6,7 +6,7 @@
 - **Registration Modal**: Complete form with validation
 - **Username Validation**: Real-time checking with hints
 - **Password Strength**: Visual requirements and validation
-- **Starting Balance**: New users get 1000 ₽
+- **Starting Balance**: New users get 1000 £
 - **User Feedback**: Success messages and error handling
 
 ### 🔐 Password Management
@@ -59,7 +59,7 @@
 2. Fill in username (3-20 characters, alphanumeric + underscores)
 3. Create strong password (8+ chars, letter + number)
 4. Confirm password
-5. Account created with 1000 ₽ starting balance!
+5. Account created with 1000 £ starting balance!
 
 ### Password Change
 1. Log in to dashboard
@@ -71,13 +71,13 @@
 7. Automatic logout for security
 
 ### Demo Accounts Available
-- **player1** / password123 (15,450 ₽)
-- **guild_master_alex** / password123 (25,000 ₽)
-- **guild_member_sarah** / password123 (8,750 ₽)
-- **trader_mike** / password123 (12,300 ₽)
-- **party_member_luna** / password123 (6,500 ₽)
-- **equipment_vendor** / password123 (18,900 ₽)
-- **tournament_organizer** / password123 (50,000 ₽)
+- **player1** / password123 (15,450 £)
+- **guild_master_alex** / password123 (25,000 £)
+- **guild_member_sarah** / password123 (8,750 £)
+- **trader_mike** / password123 (12,300 £)
+- **party_member_luna** / password123 (6,500 £)
+- **equipment_vendor** / password123 (18,900 £)
+- **tournament_organizer** / password123 (50,000 £)
 
 ## 🔧 Technical Details
 

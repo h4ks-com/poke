@@ -235,7 +235,7 @@ func (s *UserService) generateAccountNumber() string {
 	return accountNumber
 }
 
-// createInitialTransaction creates the initial ₽1000 transaction from PokéBank
+// createInitialTransaction creates the initial £1000 transaction from PokéBank
 func (s *UserService) createInitialTransaction(tx *sql.Tx, userID int) error {
 	// Get or create PokéBank system user
 	pokeBankID, err := s.getOrCreatePokeBankUser(tx)
