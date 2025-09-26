@@ -3,7 +3,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'PKMN RBYGSC' !important;
+    font-family: 'Roboto Condensed' !important;
 }
 
 .fa, .fas, .far, .fal, .fab {
@@ -11,7 +11,7 @@
 }
 
 body {
-    font-family: 'PKMN RBYGSC';
+    font-family: 'Roboto Condensed';
     background: #F5F5F5;
     min-height: 100vh;
     color: #333;
@@ -1263,8 +1263,8 @@ textarea {
 }
 
 @font-face {
-    font-family: 'PKMN RBYGSC';
-    src: url('../fonts/PKMNRBYGSC.ttf') format('truetype');
+    font-family: 'Roboto Condensed';
+    src: url('../fonts/RobotoCondensed/static/RobotoCondensed-Black.ttf') format('truetype');
 }
 
 /* Responsive Design */
@@ -1501,7 +1501,7 @@ textarea {
 }
 
 .card-number {
-    font-family: 'PKMN RBYGSC';
+    font-family: 'Roboto Condensed';
     font-size: 20px;
     font-weight: 600;
     letter-spacing: 2px;
