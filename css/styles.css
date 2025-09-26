@@ -1264,7 +1264,7 @@ textarea {
 
 @font-face {
     font-family: 'PKMN RBYGSC';
-    src: url('https://github.com/h4ks-com/poke/blob/main/fonts/PKMNRBYGSC.ttf') format('truetype');
+    src: url('../fonts/PKMNRBYGSC.ttf') format('truetype');
 }
 
 /* Responsive Design */
