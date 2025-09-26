@@ -31,6 +31,7 @@ COPY debug_test.html ./
 COPY css/ ./css/
 COPY js/ ./js/
 COPY assets/ ./assets/
+COPY fonts/ ./fonts/
 
 # Run the application
 CMD ["./viridian-bank-backend"]
